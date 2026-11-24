@@ -18,7 +18,7 @@ Scope: Real scalar $\phi^4$ theory renormalization from one loop to the critical
 - **Source Question / Requirement:** Define tadpole $T$ and zero-momentum bubble $B(P)$. For $|k| < \Lambda$, evaluate $T$ and $B(0)$ exactly and expand through $\Lambda^{-2}$. Independently obtain their DR Laurent expansions through the finite $\epsilon^0$ terms. Identify power divergences, logarithms, and poles. Verify $B(0) = -\partial T / \partial m^2$ in both schemes.
 - **Mapped Skill Task ID:** 1.2.a through 1.2.f.
 - **Mapped Notebook Section/Cell Group:** Section 1.2.
-- **Status:** `not_stated`
+- **Status:** `addressed`
 
 ## 1.3 — Counterterms and regulator independence
 - **Source PDF Page:** Page 1.

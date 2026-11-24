@@ -1,5 +1,5 @@
 project: qft-midterm-ara
-active_subsection: "1.1"
+active_subsection: "1.4"
 subsections:
   "1.1":
     status: derived
@@ -9,19 +9,55 @@ subsections:
         type: decision
         description: "Initialized ARA records and anchored subpart 1.1 Feynman rules, topologies, symmetry factors, and amplitudes."
         reason: "Complying with QFT midterm workflow and mandatory source gate."
-        outcome: "Subpart 1.1 requirements derived and anchored."
+        outcome: "Subpart 1.1 requirements derived and anchored via A-01 through A-03. Status: derived (analytical)."
         claim_ids: ["A-01", "A-02", "A-03"]
         anchor_ids: ["A-01", "A-02", "A-03"]
         evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md"]
   "1.2":
-    status: not_started
-    events: []
+    status: derived
+    events:
+      - id: EV-1.2-01
+        timestamp: "2026-11-23T22:15:00+03:30"
+        type: decision
+        description: "Derived exact sharp-cutoff tadpole and bubble integrals, asymptotic expansions through Λ^-2, DR Laurent expansions through finite ε^0 terms via master integrals, and verified derivative identity B(0) = -∂T/∂m^2."
+        reason: "Fulfilling subsection 1.2 requirements from detailed project brief."
+        outcome: "Subpart 1.2 derived, checked analytically, and anchored via A-04 and A-05. Status: derived (analytical)."
+        claim_ids: ["A-04", "A-05"]
+        anchor_ids: ["A-04", "A-05"]
+        evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/anchor/equation-map.md"]
+      - id: EV-1.2-02
+        timestamp: "2026-11-24T18:11:11+03:30"
+        type: user_input
+        description: "User requested expanded detail and code clarification for subpart 1.2."
+        reason: "User wants more explicit code-level and mathematical details for cutoff and DR integrals."
+        outcome: "Recorded user request; analytic proofs verified."
+        claim_ids: ["A-04", "A-05"]
+        anchor_ids: ["A-04", "A-05"]
+        evidence_paths: ["ara/logic/claims.md"]
   "1.3":
-    status: not_started
-    events: []
+    status: derived
+    events:
+      - id: EV-1.3-01
+        timestamp: "2026-11-24T20:00:00+03:30"
+        type: decision
+        description: "Derived one-loop counterterms under zero-momentum (SII) conditions and proved regulator independence of B(P)-B(0) and its slope B'(0) = -1/(96\pi^2 m^2)."
+        reason: "Fulfilling subsection 1.3 requirements."
+        outcome: "SII counterterms and subtracted bubble difference derived; sharp-cutoff limit/shift order rigorously established. Status: derived (analytical), anchored via A-06 through A-09."
+        claim_ids: ["A-06", "A-07", "A-08", "A-09"]
+        anchor_ids: ["A-06", "A-07", "A-08", "A-09"]
+        evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/anchor/equation-map.md"]
   "1.4":
-    status: not_started
-    events: []
+    status: derived
+    events:
+      - id: EV-1.4-01
+        timestamp: "2026-11-24T22:30:00+03:30"
+        type: correction
+        description: "Resolved Solve failure and syntax errors in subsection 1.4 Mathematica code."
+        reason: "Two coding mistakes were identified and corrected: (1) Solve[betaEq, mu * gOfMu'[mu]] failed because Mathematica cannot solve for a product as a single variable—it required solving for gOfMu'[mu] alone and multiplying by mu; (2) An improperly commented sentence in the notebook prevented execution."
+        outcome: "Successful derivation of MS one-loop beta function beta_g = -eps*g + 3*g^2 and Wilson-Fisher fixed point g* = eps/3. Status: derived (Mathematica-corrected), anchored via A-10 through A-12."
+        claim_ids: ["A-10", "A-11", "A-12"]
+        anchor_ids: ["A-10", "A-11", "A-12"]
+        evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/anchor/equation-map.md"]
   "2.1":
     status: not_started
     events: []
