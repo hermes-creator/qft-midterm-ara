@@ -1,0 +1,516 @@
+(* ::Package:: *)
+
+(* ========================================================================= *)
+(* QFT Midterm Project: Scalar Field Renormalization (Phi^4)                 *)
+(* ========================================================================= *)
+
+
+
+(* ::Cell:: *)
+(* --- Cell 1: Package Initialization --- *)
+(* Question: How to correctly load FeynCalc and the Phi4 model? | Derivation: Standard FeynCalc loading protocol | Check: Verified existence of model files | Anchor IDs: None | Status: checked *)
+
+
+$LoadAddOns = {"FeynArts"};
+<< FeynCalc`
+modelDir = FileNameJoin[{$FeynCalcDirectory, "Examples", "Models", "Phi4"}];
+{FileExistsQ[FileNameJoin[{modelDir, "Phi4.mod"}]], FileExistsQ[FileNameJoin[{modelDir, "Phi4.gen"}]]}
+FAPatch[PatchModelsOnly -> True, FAModelsDirectory -> modelDir];
+
+
+
+(* ::Cell:: *)
+(* --- Cell 2: Topology Generation --- *)
+(* Question: How to generate 1PI 1-loop diagrams? | Derivation: Standard 1-loop top-down insertion | Check: Topology count | Anchor IDs: EQ-01 | Status: derived *)
+
+
+$D = 4 - \[Epsilon];
+FCSetDiracGammaDimension[4];
+
+topos2pt = CreateTopologies[1, 1 -> 1, ExcludeTopologies -> {WFCorrections}];
+topos4pt = CreateTopologies[1, 2 -> 2, ExcludeTopologies -> {WFCorrections}];
+
+insertions2pt = InsertFields[topos2pt, {S[1]} -> {S[1]},  InsertionLevel -> {Classes},
+  Model -> FileNameJoin[{modelDir,"Phi4"}],
+  GenericModel -> FileNameJoin[{modelDir,"Phi4"}]];
+insertions4pt = InsertFields[topos4pt, {S[1], S[1]} -> {S[1], S[1]}, InsertionLevel -> {Classes}, Model -> FileNameJoin[{modelDir,"Phi4"}],
+  GenericModel -> FileNameJoin[{modelDir,"Phi4"}]];
+
+Print["Number of 2pt insertions: ", Length[insertions2pt]];
+Print["Number of 4pt insertions: ", Length[insertions4pt]];
+
+
+
+(* ::Cell:: *)
+(* --- Cell 3: Visualization --- *)
+(* Question: How to visualize the generated diagrams? | Derivation: Paint function call | Check: Visual inspection | Anchor IDs: None | Status: derived *)
+
+
+Print["Painting 2pt Diagrams"];
+Paint[insertions2pt, ColumnsXRows -> {2, 1}, Numbering -> None, SheetHeader -> None, ImageSize -> {300, 150}];
+
+Print["Painting 4pt Diagrams"];
+Paint[insertions4pt, ColumnsXRows -> {3, 1}, Numbering -> None, SheetHeader -> None, ImageSize -> {450, 150}];
+
+
+
+(* ::Cell:: *)
+(* --- Cell 4: Amplitude Construction & Channel Identification --- *)
+(* Question: How to construct amplitude and identify kinematic channels? | Derivation: FCFAConvert with momenta routing | Check: Symmetry factors applied | Anchor IDs: EQ-02 | Status: derived *)
+
+
+amp2pt = CreateFeynAmp[insertions2pt, PreFactor -> 1];
+amp4pt = CreateFeynAmp[insertions4pt, PreFactor -> 1];
+
+fcAmps2pt = FCFAConvert[amp2pt, IncomingMomenta -> {p}, OutgoingMomenta -> {p}, LoopMomenta -> {q}, ChangeDimension -> D, List -> False];
+fcAmps4pt = FCFAConvert[amp4pt, IncomingMomenta -> {p1, p2}, OutgoingMomenta -> {k1, k2}, LoopMomenta -> {q}, ChangeDimension -> D, List -> False];
+
+(* Explicit Identification of Channels *)
+Print["Identifying 4-point channels (s, t, u):"];
+SetMandelstam[s, t, u, p1, p2, -k1, -k2, 0, 0, 0, 0];
+Print["Channel S: ", (p1 + p2)^2];
+Print["Channel T: ", (p1 - k1)^2];
+Print["Channel U: ", (p1 - k2)^2];
+
+
+
+(* ::Cell:: *)
+(* --- Cell 5: Tensor Reduction (ToPaVe) and Conventions --- *)
+(* Question: How to reduce tensors to scalar integrals? | Derivation: TID followed by ToPaVe | Check: Divergence consistency | Anchor IDs: EQ-03 | Status: derived *)
+
+
+(* Conventions: 
+   - Wick Rotation: q_0 -> i q_0_E 
+   - Measure: 1/(2pi)^D int d^D q
+*)
+topoV2pt = ToPaVe[fcAmps2pt, q];
+topoV4pt = ToPaVe[fcAmps4pt, q];
+
+Print["ToPaVe Reduced 2pt Integrals: ", topoV2pt];
+Print["ToPaVe Reduced 4pt Integrals: ", topoV4pt];
+
+(* ========================================================================= *)
+(* Subsection 1.2: Cutoff and Dimensional Regularization of T and B(0)       *)
+(* ========================================================================= *)
+
+(* ::Cell:: *)
+(* --- Cell 6: Sharp Cutoff Evaluation of Tadpole and Bubble (Eq. 1.5) --- *)
+(* Question: How to evaluate T and B(0) for |k| < Lambda exactly and expand through Lambda^-2? | Derivation: 4D Euclidean spherical integration with u = k^2 and radial measure u du / (16 Pi^2) | Check: Exact integrals and Lambda -> Infinity expansion through Lambda^-2 | Anchor IDs: A-05 | Status: derived *)
+
+(* Anchor: A-05 (Eq. 1.5, Sasha.pdf Ch. 13, Eq. 13.2, printed p. 112) *)
+(* Convention: d = 4 sharp Euclidean cutoff |k| < Lambda, m^2 > 0. m2 stands for m^2 (D[..., m^2] is invalid in Mathematica). *)
+
+ClearAll[u, m2, lamUV, cutAssumptions, tCutExact, bCutExact, tCutSeries, bCutSeries];
+cutAssumptions = m2 > 0 && lamUV > 0;
+
+tCutExact = FullSimplify[
+  Integrate[u/(u + m2), {u, 0, lamUV^2}, Assumptions -> cutAssumptions]/(16 Pi^2),
+  cutAssumptions];
+
+bCutExact = FullSimplify[
+  Integrate[u/(u + m2)^2, {u, 0, lamUV^2}, Assumptions -> cutAssumptions]/(16 Pi^2),
+  cutAssumptions];
+
+tCutSeries = Assuming[cutAssumptions,
+  FullSimplify[Normal[Series[tCutExact, {lamUV, Infinity, 2}]]]];
+
+bCutSeries = Assuming[cutAssumptions,
+  FullSimplify[Normal[Series[bCutExact, {lamUV, Infinity, 2}]]]];
+
+Print["[A-05] Sharp Cutoff Tadpole T_Lambda (exact): ", tCutExact];
+Print["[A-05] Sharp Cutoff Tadpole T_Lambda (through Lambda^-2): ", tCutSeries];
+Print["[A-05] Sharp Cutoff Bubble B_Lambda(0) (exact): ", bCutExact];
+Print["[A-05] Sharp Cutoff Bubble B_Lambda(0) (through Lambda^-2): ", bCutSeries];
+
+
+(* ::Cell:: *)
+(* --- Cell 7: Dimensional Regularization (DR) Laurent Expansions (Eq. 1.4) --- *)
+(* Question: What are the independent DR Laurent expansions of T and B(0) through the finite epsilon^0 term? | Derivation: Schwinger parameter and DR master integral J_a(m^2) with one mu^epsilon per loop and d = 4 - epsilon | Check: Independent evaluation of T = J_1 and B(0) = J_2 through O(epsilon^0) | Anchor IDs: A-04 | Status: derived *)
+
+(* Anchor: A-04 (Eq. 1.4, Sasha.pdf Ch. 13, Eqs. 13.5-13.7, printed pp. 113-114) *)
+(* Convention: d = 4 - \[Epsilon], one \[Mu]^\[Epsilon] per loop, m^2 > 0, \[Epsilon] = 2 \[Epsilon]_FC *)
+
+ClearAll[a, mu, drAssumptions, jDR, tDRExact, bDRExact, tDRSeries, bDRSeries];
+drAssumptions = m2 > 0 && mu > 0 && Element[\[Epsilon], Reals];
+
+jDR[a_] := mu^\[Epsilon] m2^(2 - \[Epsilon]/2 - a) Gamma[a - 2 + \[Epsilon]/2]/((4 Pi)^(2 - \[Epsilon]/2) Gamma[a]);
+
+tDRExact = jDR[1];
+bDRExact = jDR[2];
+
+tDRSeries = Assuming[drAssumptions,
+  FullSimplify[Normal[Series[tDRExact, {\[Epsilon], 0, 0}]]]];
+
+bDRSeries = Assuming[drAssumptions,
+  FullSimplify[Normal[Series[bDRExact, {\[Epsilon], 0, 0}]]]];
+
+Print["[A-04] Exact DR Tadpole T_DR: ", tDRExact];
+Print["[A-04] DR Tadpole Laurent expansion (through eps^0): ", tDRSeries];
+Print["[A-04] Exact DR Bubble B_DR(0): ", bDRExact];
+Print["[A-04] DR Bubble B(0) Laurent expansion (through eps^0): ", bDRSeries];
+
+
+(* ::Cell:: *)
+(* --- Cell 8: Divergence Classification (Power Divergences, Logarithms, and Poles) --- *)
+(* Question: How are power divergences, logarithms, and 1/epsilon poles identified in both schemes? | Derivation: Extract UV-divergent coefficients from the cutoff and DR expansions | Check: Match quadratic/logarithmic cutoff terms against 1/epsilon DR poles | Anchor IDs: A-04, A-05 | Status: derived *)
+
+tCutQuadCoeff = Coefficient[tCutSeries, lamUV^2];
+tDRPoleCoeff = FullSimplify[Limit[\[Epsilon] tDRSeries, \[Epsilon] -> 0], drAssumptions];
+bDRPoleCoeff = FullSimplify[Limit[\[Epsilon] bDRSeries, \[Epsilon] -> 0], drAssumptions];
+
+Print["[A-05] T_Lambda quadratic divergence coeff (of Lambda^2): ", tCutQuadCoeff];
+Print["[A-04] T_DR simple pole coeff (of 1/eps): ", tDRPoleCoeff];
+Print["[A-04] B_DR(0) simple pole coeff (of 1/eps): ", bDRPoleCoeff];
+
+
+(* ::Cell:: *)
+(* --- Cell 9: Derivative Identity Verification B(0) = -dT/dm^2 --- *)
+(* Question: Does B(0) = -partial T / partial m^2 hold in both sharp cutoff and DR schemes? | Derivation: Differentiate T with respect to m2 = m^2 at fixed regulator scale (Lambda or mu) | Check: Both exact and expanded differences vanish identically | Anchor IDs: A-04, A-05 | Status: derived *)
+
+idCheckCutExact = FullSimplify[bCutExact - (-D[tCutExact, m2]), cutAssumptions];
+idCheckCutSeries = FullSimplify[bCutSeries - (-D[tCutSeries, m2]), cutAssumptions];
+idCheckDRExact = FullSimplify[
+  (bDRExact - (-D[tDRExact, m2])) /. Gamma[\[Epsilon]/2] :> (\[Epsilon]/2 - 1) Gamma[\[Epsilon]/2 - 1],
+  drAssumptions];
+idCheckDRSeries = FullSimplify[bDRSeries - (-D[tDRSeries, m2]), drAssumptions];
+
+Print["[A-05] Derivative identity check (Sharp Cutoff, exact): ", idCheckCutExact];
+Print["[A-05] Derivative identity check (Sharp Cutoff, series): ", idCheckCutSeries];
+Print["[A-04] Derivative identity check (DR, exact): ", idCheckDRExact];
+Print["[A-04] Derivative identity check (DR, series): ", idCheckDRSeries];
+
+
+(* ========================================================================= *)
+(* Subsection 1.3: Counterterms and Regulator Independence                   *)
+(* ========================================================================= *)
+
+(* ::Cell:: *)
+(* --- Cell 10: Zero-Momentum Normalization (SII) and One-Loop Counterterms --- *)
+(* Question: What are deltaZphi, deltam2, and deltalambda in both regulators under SII? | Derivation: Impose Gamma^(2)(0)=m^2, dGamma^(2)/dp^2|_0=1, Gamma^(4)(0)=lambda on the 1-loop 1PI vertices | Check: All three normalization conditions are satisfied identically after inserting counterterms | Anchor IDs: A-06, A-07 | Status: derived *)
+
+(* Anchor: A-06 (Zero-momentum normalization SII, Sasha.pdf Ch. 15, Eqs. 15.2-15.5, printed pp. 148-149) *)
+(* Anchor: A-07 (Counterterm series dZ = z1 lam + ..., dm2 = b1 lam + ..., dlam = a1 lam + ..., Sasha.pdf Ch. 13, printed p. 116) *)
+(* Euclidean signs from the brief:
+   Gamma2(p) = p^2 + m^2 + dZphi p^2 + dm2 + (lam/2) T
+   Gamma4    = lam + dlam - (lam^2/2) (B(P12) + B(P13) + B(P14)) *)
+
+ClearAll[p2, lam, dZphi, dm2Cut, dlamCut, dm2DR, dlamDR, gamma2Cut, gamma2DR, gamma4ZeroCut, gamma4ZeroDR];
+
+dZphi = 0;
+dm2Cut = -lam tCutSeries/2;
+dlamCut = 3 lam^2 bCutSeries/2;
+dm2DR = -lam tDRSeries/2;
+dlamDR = 3 lam^2 bDRSeries/2;
+
+gamma2Cut = p2 + m2 + dZphi p2 + dm2Cut + (lam/2) tCutSeries;
+gamma2DR = p2 + m2 + dZphi p2 + dm2DR + (lam/2) tDRSeries;
+gamma4ZeroCut = lam + dlamCut - (3 lam^2/2) bCutSeries;
+gamma4ZeroDR = lam + dlamDR - (3 lam^2/2) bDRSeries;
+
+Print["[A-07] One-loop deltaZ_phi (both regulators): ", dZphi];
+Print["[A-07] Sharp Cutoff delta m^2: ", FullSimplify[dm2Cut, cutAssumptions]];
+Print["[A-07] Sharp Cutoff delta lambda: ", FullSimplify[dlamCut, cutAssumptions]];
+Print["[A-07] DR delta m^2: ", FullSimplify[dm2DR, drAssumptions]];
+Print["[A-07] DR delta lambda: ", FullSimplify[dlamDR, drAssumptions]];
+Print["[A-06] SII check, cutoff, expected {m2, 1, lam}: ",
+  FullSimplify[{gamma2Cut /. p2 -> 0, D[gamma2Cut, p2] /. p2 -> 0, gamma4ZeroCut}, cutAssumptions]];
+Print["[A-06] SII check, DR, expected {m2, 1, lam}: ",
+  FullSimplify[{gamma2DR /. p2 -> 0, D[gamma2DR, p2] /. p2 -> 0, gamma4ZeroDR}, drAssumptions]];
+
+
+(* ::Cell:: *)
+(* --- Cell 11: Subtracted Bubble B(P) - B(0) and Regulator Independence --- *)
+(* Question: Do B(P) - B(0) and its slope at P^2 = 0 agree in DR and sharp cutoff as the regulators are removed? | Derivation: Feynman parametrization (Eq. 13.20) for DR; form the convergent difference and take Lambda -> Infinity before shifting loop momentum for the cutoff | Check: Identical finite integrand and slope B'(0) = -1/(96 Pi^2 m^2) | Anchor IDs: A-08, A-09 | Status: derived *)
+
+(* Anchor: A-08 (Feynman parametrization, Sasha.pdf Ch. 13, Eq. 13.20, printed p. 121) *)
+(* Anchor: A-09 (Subtracted bubble and slope, Sasha.pdf Ch. 13, Eqs. 13.19 and 13.21, printed pp. 120-122) *)
+(* Cutoff warning: form B_Lambda(P) - B_Lambda(0) first, remove Lambda, and only then use Feynman parameters and shift k. *)
+
+ClearAll[x, P2, subBubbleDR, subBubbleCut, bDiffClosed, bSlopeDR, bSlopeCut];
+
+subBubbleDR = Assuming[drAssumptions && P2 > 0 && 0 < x < 1,
+  FullSimplify[Normal[Series[
+    mu^\[Epsilon] Gamma[\[Epsilon]/2]/(4 Pi)^(2 - \[Epsilon]/2) *
+      ((m2 + x (1 - x) P2)^(-\[Epsilon]/2) - m2^(-\[Epsilon]/2)),
+    {\[Epsilon], 0, 0}]]]];
+
+subBubbleCut = Assuming[m2 > 0 && P2 > 0 && 0 < x < 1,
+  FullSimplify[Limit[
+    Integrate[u (1/(u + m2 + x (1 - x) P2)^2 - 1/(u + m2)^2), {u, 0, lamUV^2},
+      Assumptions -> m2 > 0 && P2 > 0 && lamUV > 0 && 0 < x < 1]/(16 Pi^2),
+    lamUV -> Infinity]]];
+
+bDiffClosed = Assuming[m2 > 0 && P2 > 0, FullSimplify[Integrate[subBubbleDR, {x, 0, 1}]]];
+bSlopeDR = Assuming[m2 > 0, FullSimplify[Integrate[D[subBubbleDR, P2] /. P2 -> 0, {x, 0, 1}]]];
+bSlopeCut = Assuming[m2 > 0, FullSimplify[Integrate[D[subBubbleCut, P2] /. P2 -> 0, {x, 0, 1}]]];
+
+Print["[A-08, A-09] DR integrand of B(P) - B(0): ", subBubbleDR];
+Print["[A-08, A-09] Cutoff integrand of B(P) - B(0) (Lambda -> Inf): ", subBubbleCut];
+Print["[A-09] Integrand difference DR - Cutoff, expected 0: ",
+  FullSimplify[subBubbleDR - subBubbleCut, m2 > 0 && P2 > 0 && 0 < x < 1]];
+Print["[A-09] Closed-form B(P) - B(0): ", bDiffClosed];
+Print["[A-09] Slope B'(0) in DR: ", bSlopeDR];
+Print["[A-09] Slope B'(0) in Cutoff: ", bSlopeCut];
+
+
+(* ========================================================================= *)
+(* Subsection 1.4: Minimal Subtraction Beta Function and Fixed Point         *)
+(* ========================================================================= *)
+
+(* ::Cell:: *)
+(* --- Cell 12: MS Bare Coupling, One-Loop Beta Function, and Fixed Point --- *)
+(* Question: What are beta_g through O(g^2) and the Wilson-Fisher fixed point g* through O(eps) in MS? | Derivation: Keep only DR 1/eps pole counterterms (MS), write lambda_0 through g = lambda/(16 Pi^2), impose mu d(lambda_0)/dmu = 0 | Check: beta_g = -eps g + 3 g^2 and g* = eps/3 agree with Ch. 15 Eq. 15.19 and Ch. 21 Eq. 21.9 | Anchor IDs: A-10, A-11, A-12 | Status: derived *)
+
+(* Anchor: A-10 (Canonical dimensions, Sasha.pdf Ch. 12, Eqs. 12.2-12.4, printed pp. 108-109) *)
+(* Anchor: A-11 (MS pole counterterms and bare coupling, Ch. 13 Eq. 13.22 p. 122; Ch. 15 p. 149 definitions; Ch. 21 Eq. 21.2 p. 216) *)
+(* Anchor: A-12 (beta function and Wilson-Fisher point, Ch. 15 Eq. 15.19 p. 156; Ch. 21 Eqs. 21.9, 21.11 pp. 220) *)
+(* Notice: MS keeps only the 1/eps pole, unlike the finite SII subtractions of Cell 10. The tadpole is p-independent,
+   so dZphi = 0 at one loop and Zphi = 1 + O(g^2). *)
+
+ClearAll[g, gOfMu, lam0MS, dZphiMS, betaEq, betaSol, betaG, gStar];
+
+dZphiMS = 0;
+lam0MS = 16 Pi^2 mu^\[Epsilon] gOfMu[mu] (1 + 3 gOfMu[mu]/\[Epsilon]);
+
+betaEq = Expand[mu D[lam0MS, mu]/(16 Pi^2 mu^\[Epsilon])] == 0;
+betaSol = Simplify[(mu gOfMu'[mu] /. First[Solve[betaEq, gOfMu'[mu]]]) /. gOfMu[mu] -> g];
+betaG = Normal[Series[betaSol, {g, 0, 2}]];
+gStar = First[Select[g /. Solve[betaG == 0, g], # =!= 0 &]];
+
+Print["[A-11] One-loop MS field counterterm deltaZ_phi,MS: ", dZphiMS];
+Print["[A-11] Bare coupling lambda_0 in MS: ", lam0MS /. gOfMu[mu] -> g];
+Print["[A-12] beta_g before truncation: ", betaSol];
+Print["[A-12] MS beta function (through O(g^2)): ", betaG];
+Print["[A-12] Nonzero Wilson-Fisher fixed point g*: ", gStar];
+
+
+(* ========================================================================= *)
+(* PART 2: Critical exponents and water (massless DR, p^2 > 0, g* from 1.4)  *)
+(* ========================================================================= *)
+(* Convention: mass tuned to criticality, so m^2 = 0 and the massless tadpole is scaleless (= 0) in DR.
+   d = 4 - eps, one mu^eps per loop (two loops: mu^(2 eps)), g = lambda/(16 Pi^2), eps = 2 eps_FC. *)
+
+(* ::Cell:: *)
+(* --- Cell 13: Two-Loop 1PI Two-Point Topologies and Field Insertions --- *)
+(* Question: Which two-loop 1PI two-point diagrams exist in real scalar phi^4 theory? | Derivation: CreateTopologies with two loops, then InsertFields in the Phi4 model | Check: Exactly two graphs expected: the sunset and the double scoop | Anchor IDs: A-02, A-13 | Status: derived *)
+
+(* Uses modelDir from Cell 1. The symbol d is not used because FeynCalc owns D. *)
+ClearAll[topos2L, insertions2L];
+
+topos2L = CreateTopologies[2, 1 -> 1, ExcludeTopologies -> {Tadpoles, WFCorrections}];
+insertions2L = InsertFields[topos2L, {S[1]} -> {S[1]}, InsertionLevel -> {Classes},
+  Model -> FileNameJoin[{modelDir, "Phi4"}],
+  GenericModel -> FileNameJoin[{modelDir, "Phi4"}]];
+
+Print["Number of two-loop 2pt topologies: ", Length[topos2L]];
+Print["Number of two-loop 2pt field insertions (expected 2): ", Length[insertions2L]];
+
+
+(* ::Cell:: *)
+(* --- Cell 14: Visualization of the Two-Loop Diagrams --- *)
+(* Question: Do the generated graphs agree with the sunset and double-scoop topologies? | Derivation: Paint function call | Check: Visual inspection; the sunset has no loop attached to a single vertex, the double scoop has a self-loop | Anchor IDs: A-13 | Status: derived *)
+
+Print["Painting two-loop 2pt diagrams"];
+Paint[insertions2L, ColumnsXRows -> {2, 1}, Numbering -> None, SheetHeader -> None, ImageSize -> {450, 200}];
+
+
+(* ::Cell:: *)
+(* --- Cell 15: Two-Loop Amplitudes and Identification of p-Dependent Graphs --- *)
+(* Question: How to build the two-loop amplitudes and decide which depend on the external momentum p? | Derivation: CreateFeynAmp, then FCFAConvert with two loop momenta q1 and q2 | Check: A graph is p-dependent when p appears in its denominators; p-independent graphs are scaleless at m = 0 | Anchor IDs: A-03, A-13 | Status: derived *)
+
+(* List -> True keeps the diagrams separate so each one can be tested. *)
+(* Mass symbol: inspect Variables[fcAmps2L]; if the Phi4 model contributes a mass symbol, set it to 0 here for the critical theory. *)
+ClearAll[amp2L, fcAmps2L, massRules, pDependent2L, pIndependent2L];
+massRules = {};
+
+amp2L = CreateFeynAmp[insertions2L, PreFactor -> 1];
+fcAmps2L = FCFAConvert[amp2L, IncomingMomenta -> {p}, OutgoingMomenta -> {p},
+  LoopMomenta -> {q1, q2}, ChangeDimension -> D, List -> True] /. massRules;
+
+pDependent2L = Select[fcAmps2L, ! FreeQ[#, p] &];
+pIndependent2L = Select[fcAmps2L, FreeQ[#, p] &];
+
+Print["Converted two-loop amplitudes: ", fcAmps2L];
+Print["Graphs depending on external p (expected 1, the sunset): ", Length[pDependent2L]];
+Print["Graphs independent of p (expected 1, the double scoop): ", Length[pIndependent2L]];
+Print["p-dependent amplitude: ", pDependent2L];
+
+
+(* ::Cell:: *)
+(* --- Cell 16: Symmetry Factors by Wick Counting --- *)
+(* Question: What is the symmetry factor of the sunset (and of the double scoop)? | Derivation: Count Wick contractions of two quartic vertices (lambda/4!)^2/2! with two external legs | Check: Sunset = 1/6, double scoop = 1/4 | Anchor IDs: A-13 | Status: derived *)
+
+(* Sunset: 2 vertex assignments of the external legs x 4 legs x 4 legs x 3! pairings of the remaining legs.
+   Double scoop: 2 choices of the vertex carrying both external legs x (4 x 3) external legs x (4 x 3) links to the other vertex x 1 self-contraction. *)
+nWickSunset = 2*4*4*Factorial[3];
+nWickScoop = 2*(4*3)*(4*3)*1;
+symFactorSunset = nWickSunset/(Factorial[2] Factorial[4]^2);
+symFactorScoop = nWickScoop/(Factorial[2] Factorial[4]^2);
+
+Print["[A-13] Sunset symmetry factor (expected 1/6): ", symFactorSunset];
+Print["[A-13] Double scoop symmetry factor (expected 1/4): ", symFactorScoop];
+
+
+(* ::Cell:: *)
+(* --- Cell 17: Massless Sunset H(p) from Two One-Loop Convolutions --- *)
+(* Question: What is H(p) = mu^(2 eps) Int d^dk d^dl/(2 Pi)^(2d) 1/(k^2 l^2 (p-k-l)^2) in closed gamma-function form? | Derivation: Massless convolution G(a,b) applied twice, with Gamma(z+1) = z Gamma(z) used to simplify | Check: Product of the two steps equals the closed form | Anchor IDs: A-13, A-14, A-15, A-16 | Status: derived *)
+
+(* Anchor: A-14 (Feynman parametrization identity, Sasha.pdf Ch. 13, Eq. 13.20, printed p. 121; momentum integral Eq. 13.7, p. 114) *)
+(* Anchor: A-15 (Gamma(z+1) = z Gamma(z), Sasha.pdf Ch. 13, printed p. 115, unnumbered) *)
+(* Anchor: A-13 (sunset expression, Sasha.pdf Ch. 13, printed p. 132, unnumbered; the notes keep a mass, here m = 0) *)
+
+ClearAll[dim, p2, mu, gConv, step1, step2, hProduct, hClosed];
+dim = 4 - \[Epsilon];
+
+(* Int d^dk/(2 Pi)^d 1/((k^2)^a ((k+P)^2)^b) = gConv[a,b] (P^2)^(dim/2 - a - b) *)
+gConv[a_, b_] := Gamma[dim/2 - a] Gamma[dim/2 - b] Gamma[a + b - dim/2]/
+  ((4 Pi)^(dim/2) Gamma[a] Gamma[b] Gamma[dim - a - b]);
+
+step1 = gConv[1, 1];            (* inner loop gives ((p-k)^2)^(dim/2 - 2) *)
+step2 = gConv[1, 2 - dim/2];    (* outer loop with that non-integer power gives (p^2)^(dim - 3) *)
+
+hProduct = mu^(2 \[Epsilon]) p2^(dim - 3) step1 step2;
+hClosed = mu^(2 \[Epsilon]) p2^(dim - 3)/(4 Pi)^dim *
+  Gamma[3 - dim] Gamma[dim/2 - 1]^3/Gamma[3 dim/2 - 3];
+
+Print["[A-16] Step 1, G(1,1): ", step1];
+Print["[A-16] Step 2, G(1, 2 - d/2): ", step2];
+Print["[A-16] Closed form of H(p): ", hClosed];
+Print["[A-16] Ratio product/closed (expected 1): ",
+  FullSimplify[hProduct/hClosed, p2 > 0 && mu > 0]];
+Print["[A-16] Numerical ratio check at eps = 1/3, p2 = 2, mu = 1 (expected 1.): ",
+  N[(hProduct/hClosed) /. {\[Epsilon] -> 1/3, p2 -> 2, mu -> 1}]];
+
+
+(* ::Cell:: *)
+(* --- Cell 18: Laurent Expansion of H(p) and the p^2/eps Coefficient --- *)
+(* Question: What are the Laurent expansion of H(p) and the coefficient of p^2/eps? | Derivation: Write p^2 = mu^2 e^logP and expand Gamma(-1 + eps) Gamma(1 - eps/2)^3/Gamma(3 - 3 eps/2) | Check: Only a simple pole appears (no 1/eps^2) | Anchor IDs: A-15, A-16 | Status: derived *)
+
+ClearAll[logP, hNorm, hLaurent, hPoleCoeff, hFinite];
+(* hNorm = H(p) (16 Pi^2)^2/p^2 *)
+hNorm = Assuming[mu > 0 && Element[logP, Reals],
+  FullSimplify[PowerExpand[((16 Pi^2)^2 hClosed/p2) /. p2 -> mu^2 Exp[logP]]]];
+hLaurent = Assuming[mu > 0 && Element[logP, Reals],
+  Expand[FullSimplify[Normal[Series[hNorm, {\[Epsilon], 0, 0}]]]]];
+hPoleCoeff = Coefficient[hLaurent, \[Epsilon], -1];
+hFinite = Coefficient[hLaurent, \[Epsilon], 0];
+
+Print["[A-16] H(p) (16 Pi^2)^2/p^2 through eps^0: ", hLaurent];
+Print["[A-16] Coefficient of 1/eps (expected -1/2): ", hPoleCoeff];
+Print["[A-16] Finite part (expected logP/2 + EulerGamma/2 - 13/8 - Log[4 Pi]/2): ", hFinite];
+Print["[A-16] Coefficient of 1/eps^2 (expected 0): ", Coefficient[hLaurent, \[Epsilon], -2]];
+Print["[A-16] Coefficient of p^2/eps in H(p): ", hPoleCoeff/(16 Pi^2)^2, " (= -1/(512 Pi^4))"];
+
+
+(* ::Cell:: *)
+(* --- Cell 19: Four-Point Subdivergences and Counterterm Insertions --- *)
+(* Question: Why do four-point subdivergence counterterms not affect the p^2 pole? | Derivation: Contracting the bubble of the sunset to a point leaves a tadpole with a delta-lambda vertex; massless tadpoles are scaleless | Check: massless J_1 = 0 in DR, and the counterterm-inserted tadpole carries no p | Anchor IDs: A-07, A-11, A-16 | Status: derived *)
+
+(* Notice: at one loop dZphi = 0 and the massless dm2 = 0, so the only counterterm inserted into two-loop 2pt graphs is
+   delta-lambda (MS: 3 lam^2/(16 Pi^2 eps)). Its insertion gives (-dlam/2) x (massless tadpole), independent of p. *)
+ClearAll[dlamMS, tMassless, ctTadpole];
+dlamMS = 3 lam^2/(16 Pi^2 \[Epsilon]);
+tMassless = Limit[jDR[1] /. {m2 -> mm, \[Epsilon] -> 1}, mm -> 0, Direction -> "FromAbove"];
+ctTadpole = -dlamMS/2 * tMassless;
+
+Print["[A-11] Massless tadpole J_1(m2 -> 0) at eps = 1 (expected 0, scaleless): ", tMassless];
+Print["[A-07] Counterterm-inserted tadpole (p-independent, expected 0): ", ctTadpole];
+Print["[A-16] p-dependence of delta-lambda tadpole: ", FreeQ[ctTadpole, p2]];
+Print["[A-16] The sunset has only a simple pole, so no 1/eps^2 term needs subdivergence cancellation: ",
+  Coefficient[hLaurent, \[Epsilon], -2] === 0];
+
+
+(* ::Cell:: *)
+(* --- Cell 20: Sunset Contribution, Z_phi, gamma_phi, and eta --- *)
+(* Question: What are the sunset sign, Z_phi, gamma_phi(g), and eta = 2 gamma_phi(gstar)? | Derivation: Gamma2 contains -(lam^2/6) H(p); cancel the p^2/eps pole with dZ; gamma = (1/2) mu d ln Z/dmu at fixed bare parameters | Check: gamma_phi = g^2/12 (Eq. 15.18), eta = eps^2/54 | Anchor IDs: A-17, A-18, A-19 | Status: derived *)
+
+(* Anchor: A-17 (field renormalization phi0 = Z^(1/2) phi, dZ = Z - 1, Sasha.pdf Ch. 15, printed p. 149, unnumbered) *)
+(* Anchor: A-18 (anomalous-dimension definition, Sasha.pdf Ch. 15, Eq. 15.23, printed p. 158) *)
+(* Derivation of the sign: two vertices give (-lam)^2 = +lam^2 in the amputated graph, so the amputated sunset is +(lam^2/6) H(p)
+   and Gamma2 = p^2 - (lam^2/6) H(p) + ... *)
+(* In MS only the pole of mu d/dmu acts: beta_g = -eps g + ..., and the 3 g^2 term of beta cancels against the g^3 pole of Z_phi at the next order. *)
+
+ClearAll[g, lamG, sunGamma2OverP2, dZphi2L, zPhi, gammaPhi, gStarMS, etaOneLoop];
+lamG = 16 Pi^2 g;
+sunGamma2OverP2 = Expand[-(g^2/6) hLaurent];             (* sunset part of Gamma2/p^2 *)
+dZphi2L = -Coefficient[sunGamma2OverP2, \[Epsilon], -1]/\[Epsilon];  (* cancels the pole *)
+zPhi = 1 + dZphi2L;
+gammaPhi = Normal[Series[(1/2) D[Log[zPhi], g] (-\[Epsilon] g), {g, 0, 2}]];
+gStarMS = \[Epsilon]/3;
+etaOneLoop = Series[2 gammaPhi /. g -> gStarMS, {\[Epsilon], 0, 2}] // Normal;
+
+Print["[A-19] Sunset pole in Gamma2/p^2 (expected g^2/(12 eps)): ", Coefficient[sunGamma2OverP2, \[Epsilon], -1]/\[Epsilon]];
+Print["[A-19] Z_phi (expected 1 - g^2/(12 eps)): ", zPhi];
+Print["[A-19] gamma_phi(g) (expected g^2/12): ", gammaPhi];
+Print["[A-19] eta = 2 gamma_phi(gstar) (expected eps^2/54): ", etaOneLoop];
+Print["[A-19] Cross-check with textbook Eq. 15.18, gamma = lam^2/(12 (4 Pi)^4): ",
+  Simplify[gammaPhi - (lamG^2/(12 (4 Pi)^4))]];
+
+
+(* ::Cell:: *)
+(* --- Cell 21: Logarithmic Check of eta and Why One-Loop g* Suffices --- *)
+(* Question: Does the finite log(p^2/mu^2) term reproduce eta, and why is g* = eps/3 enough through eps^2? | Derivation: Renormalized Gamma2/p^2 = 1 - (g^2/12) logP + const, so Gamma2 ~ (p^2)^(1 - eta/2) | Check: eta from the log equals 2 gamma_phi | Anchor IDs: A-16, A-19 | Status: derived *)
+
+ClearAll[gamma2Ren, etaFromLog, gStarSecond];
+gamma2Ren = Normal[Series[1 + dZphi2L + sunGamma2OverP2, {\[Epsilon], 0, 0}]] // Simplify;
+etaFromLog = -2 D[gamma2Ren, logP];     (* Gamma2/p^2 ~ (p^2)^(-eta/2) *)
+
+Print["[A-19] Renormalized Gamma2/p^2 (poles cancelled): ", gamma2Ren];
+Print["[A-19] eta read from the log term (expected g^2/6): ", etaFromLog];
+Print["[A-19] Check eta(log) - 2 gamma_phi, expected 0: ", Simplify[etaFromLog - 2 gammaPhi]];
+(* gamma_phi = g^2/12 + O(g^3) and g* = eps/3 + O(eps^2) give gamma_phi(gstar) = eps^2/108 + O(eps^3): a correction c eps^2 to g* changes it only at eps^3. *)
+gStarSecond = \[Epsilon]/3 + c2 \[Epsilon]^2;
+Print["[A-19] Shift of eta by a second-order g* correction (expected O(eps^3)): ",
+  Series[2 (g^2/12) /. g -> gStarSecond, {\[Epsilon], 0, 3}] // Normal];
+
+
+(* ::Cell:: *)
+(* --- Cell 22: Scaling Derivation of delta and eps Expansion --- *)
+(* Question: How does delta = (d + 2 - eta)/(d - 2 + eta) follow from scaling dimensions, and what is its eps expansion? | Derivation: Delta_phi = (d-2+eta)/2, source h has y_h = d - Delta_phi, M ~ h^(Delta_phi/y_h) | Check: delta = 3 + eps + (25/54) eps^2 | Anchor IDs: A-20, A-21 | Status: derived *)
+
+(* Anchor: A-20 (canonical dimensions and scaling, Sasha.pdf Ch. 21, printed p. 216, unnumbered; D(lambda) = (d-2)/2 + gamma at p. 217) *)
+(* Uniform source: S_h = S - Int d^dx h phi, M = <phi>_h. *)
+ClearAll[eta, dPhi, yH, deltaGeneral, deltaSeries, deltaPlugIn, deltaExpandedD3, etaD3];
+dPhi = (dim - 2 + eta)/2;
+yH = dim - dPhi;
+deltaGeneral = Simplify[yH/dPhi];              (* M ~ h^(1/delta), 1/delta = dPhi/yH *)
+
+deltaSeries = Normal[Series[deltaGeneral /. eta -> \[Epsilon]^2/54, {\[Epsilon], 0, 2}]];
+etaD3 = (\[Epsilon]^2/54) /. \[Epsilon] -> 1;
+deltaExpandedD3 = deltaSeries /. \[Epsilon] -> 1;
+deltaPlugIn = deltaGeneral /. {eta -> \[Epsilon]^2/54} /. \[Epsilon] -> 1;
+
+Print["[A-21] delta general (expected (d + 2 - eta)/(d - 2 + eta)): ", deltaGeneral];
+Print["[A-21] delta through eps^2 (expected 3 + eps + 25 eps^2/54): ", deltaSeries];
+Print["[A-21] d = 3 prediction, expansion first then eps = 1: ", deltaExpandedD3, " = ", N[deltaExpandedD3]];
+Print["[A-21] For contrast only: formula evaluated directly with eta = 1/54: ", N[deltaPlugIn]];
+Print["[A-21] eta at d = 3 (eps = 1): ", etaD3, " = ", N[etaD3]];
+
+
+(* ::Cell:: *)
+(* --- Cell 23: Water Mapping, Scattering Slope, and Comparison Table --- *)
+(* Question: How does the d = 3 result map to the water critical isotherm, what is the S(q) slope, and how does it compare with the benchmarks? | Derivation: M ~ rho - rho_c and h ~ P - Pc map the field response to (P - Pc)/Pc ~ A sgn(drho) |drho/rho_c|^delta; S(q) ~ q^(-2+eta) | Check: comparison table | Anchor IDs: A-22, A-23 | Status: derived (mapping) / external (benchmarks) *)
+
+(* Straub water fit and the 3D Ising bootstrap value are external comparison inputs, not textbook derivations. *)
+ClearAll[deltaSigma, etaB, deltaB, deltaWater, scatterSlope, scatterSlopeB, compTable];
+deltaSigma = 518148806/1000000000;      (* 0.518148806(24) *)
+etaB = 2 deltaSigma - 1;
+deltaB = 3/deltaSigma - 1;
+deltaWater = 4324/1000;
+scatterSlope = -2 + etaD3;
+scatterSlopeB = -2 + etaB;
+
+compTable = Grid[{
+  {"Quantity", "Your result (d = 3)", "Reference", "Source of reference"},
+  {"eta", N[etaD3, 8], N[etaB, 8], "eta_B = 2 Delta_sigma - 1 (bootstrap)"},
+  {"delta", N[deltaExpandedD3, 8], N[deltaB, 8], "delta_B = 3/Delta_sigma - 1 (bootstrap)"},
+  {"Water delta", "-", deltaWater, "Straub fit (4.324)"},
+  {"Bootstrap input", "-", N[deltaSigma, 10], "Delta_sigma = 0.518148806(24)"},
+  {"S(q) slope -2 + eta", N[scatterSlope, 8], N[scatterSlopeB, 8], "xi^-1 << q << a^-1"}},
+  Frame -> All, Alignment -> Left];
+
+Print["[A-22] M ~ sgn(h)|h|^(1/delta);  h ~ P - Pc, M ~ rho - rho_c  =>  (P - Pc)/Pc ~ A sgn(drho) |drho/rho_c|^delta"];
+Print["[A-22] Predicted scattering slope -2 + eta: ", N[scatterSlope, 8]];
+Print["[A-23] Relative deviation of delta from bootstrap: ", N[(deltaExpandedD3 - deltaB)/deltaB, 5]];
+Print["[A-23] Relative deviation of delta from water fit: ", N[(deltaExpandedD3 - deltaWater)/deltaWater, 5]];
+compTable

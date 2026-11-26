@@ -7,7 +7,7 @@ subsections:
       - id: EV-1.1-01
         timestamp: "2026-11-23T21:00:00+03:30"
         type: decision
-        description: "Initialized ARA records and anchored subpart 1.1 Feynman rules, topologies, symmetry factors, and amplitudes."
+        description: "Initialized ARA records and anchored subpart 1.1 Feynman rules, topologies, symmetry factors, and amplitudes. Symmetry factor displaying added."
         reason: "Complying with QFT midterm workflow and mandatory source gate."
         outcome: "Subpart 1.1 requirements derived and anchored via A-01 through A-03. Status: derived (analytical)."
         claim_ids: ["A-01", "A-02", "A-03"]
@@ -59,11 +59,38 @@ subsections:
         anchor_ids: ["A-10", "A-11", "A-12"]
         evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/anchor/equation-map.md"]
   "2.1":
-    status: not_started
-    events: []
+    status: derived
+    events:
+      - id: EV-2.1-01
+        timestamp: "2026-11-25T14:00:00+03:30"
+        type: decision
+        description: "Derived two-loop 1PI two-point sunset integral in massless DR, isolated momentum-dependent pole coefficient, and verified subdivergence cancellations."
+        reason: "Completing Part 2 subsection 2.1 requirements."
+        outcome: "Sunset amplitude and Laurent expansion coefficients established. Anchored via A-13 to A-16."
+        claim_ids: ["A-13", "A-14", "A-15", "A-16"]
+        anchor_ids: ["A-13", "A-14", "A-15", "A-16"]
+        evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/logic/experiments.md"]
   "2.2":
-    status: not_started
-    events: []
+    status: derived
+    events:
+      - id: EV-2.2-01
+        timestamp: "2026-11-25T16:30:00+03:30"
+        type: decision
+        description: "Derived wave-function renormalization Z_phi, anomalous dimension gamma_phi, and critical exponent eta through epsilon^2."
+        reason: "Completing Part 2 subsection 2.2 requirements."
+        outcome: "eta derived and cross-checked with logarithmic divergence term. Anchored via A-17 to A-19."
+        claim_ids: ["A-17", "A-18", "A-19"]
+        anchor_ids: ["A-17", "A-18", "A-19"]
+        evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/logic/experiments.md"]
   "2.3":
-    status: not_started
-    events: []
+    status: derived
+    events:
+      - id: EV-2.3-01
+        timestamp: "2026-11-25T19:00:00+03:30"
+        type: decision
+        description: "Derived critical isotherm exponent delta through epsilon^2, mapped to water critical behavior by expanding the code to include the (P - P_c)/P_c ~ A sgn(Δρ) |Δρ/ρ_c|^δ formula, and constructed bootstrap/Straub comparison table."
+        reason: "Completing Part 2 subsection 2.3 requirements."
+        outcome: "Delta exponent and water comparison table compiled. Anchored via A-20 to A-23."
+        claim_ids: ["A-20", "A-21", "A-22", "A-23"]
+        anchor_ids: ["A-20", "A-21", "A-22", "A-23"]
+        evidence_paths: ["ara/source/assignment-requirements.md", "ara/logic/claims.md", "ara/logic/experiments.md"]
